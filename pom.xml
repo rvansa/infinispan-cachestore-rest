@@ -28,7 +28,7 @@
    <parent>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-persistence-parent</artifactId>
-      <version>6.0.0-SNAPSHOT</version>
+      <version>6.0.0.Beta1-redhat-1</version>
       <relativePath />
    </parent>
    <artifactId>infinispan-cachestore-rest</artifactId>
@@ -37,7 +37,7 @@
    <description>Infinispan REST CacheStore</description>
    
    <properties>
-      <version.httpclient>4.2.4</version.httpclient>
+      <version.httpclient>4.2.1-redhat-1</version.httpclient>
    </properties>
 
    <dependencies>
@@ -49,6 +49,11 @@
          <groupId>org.apache.httpcomponents</groupId>
          <artifactId>httpclient</artifactId>
          <version>${version.httpclient}</version>
+      </dependency>
+      <dependency>
+         <groupId>commons-httpclient</groupId>
+         <artifactId>commons-httpclient</artifactId>
+         <scope>test</scope>
       </dependency>
       <dependency>
          <groupId>${project.groupId}</groupId>
