@@ -1,4 +1,4 @@
-infinispan-cachestore-rest
-==========================
+# Infinispan REST Cache Store
 
-Infinispan RESTful cachestore
+## Documentation
+For more information, please refer to [the documentation of this cache store](documentation/src/main/asciidoc/index.adoc).
