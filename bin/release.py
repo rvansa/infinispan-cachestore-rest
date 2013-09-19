@@ -41,15 +41,13 @@ def help_and_exit():
         
 %s        Usage:%s
         
-            $ bin/release.py <version> <branch to tag from> <--mvn-only>
+            $ bin/release.py <version> <branch to tag from>
             
 %s        E.g.,%s
         
             $ bin/release.py 6.1.1.Beta1 %s<-- this will tag off master.%s
             
             $ bin/release.py 6.1.1.Beta1 6.1.x %s<-- this will use the appropriate branch.%s
-
-            $ bin/release.py 6.1.1.Beta1 6.1.x --mvn-only %s<-- this will only tag and release to maven (no dstribution).%s
 
     ''' % (Colors.yellow(), Colors.end_color(), Colors.yellow(), Colors.end_color(), Colors.green(), Colors.end_color(), Colors.green(), Colors.end_color(), Colors.green(), Colors.end_color()), Levels.INFO)
     sys.exit(0)
@@ -244,19 +242,12 @@ def release():
   version = validate_version(sys.argv[1])
   branch = "master"
 
-  mvn_only = False
   if len(sys.argv) > 2:
-    if sys.argv[2].startswith("--mvn-only"):
-       mvn_only = True
-    else:
-      branch = sys.argv[2]
+    branch = sys.argv[2]
 
   if len(sys.argv) > 3:
-     if sys.argv[3].startswith("--mvn-only"):
-       mvn_only = True
-     else:
-       prettyprint("Unknown argument %s" % sys.argv[3], Levels.WARNING)
-       help_and_exit()
+    prettyprint("Unknown argument %s" % sys.argv[3], Levels.WARNING)
+    help_and_exit()
 
   prettyprint("Releasing Infinispan version %s from branch '%s'" % (version, branch), Levels.INFO)
   sure = input_with_default("Are you sure you want to continue?", "N")
@@ -303,54 +294,17 @@ def release():
   maven_build_distribution(version)
   prettyprint("Step 4: Complete", Levels.INFO)
 
-  if not mvn_only:
-
-      async_processes = []
-
-      ##Unzip the newly built archive now
-      unzip_archive(version)
-
-      # Step 4: Update javadoc Google Analytics tracker
-      prettyprint("Step 5: Update Google Analytics tracker", Levels.INFO)
-      update_javadoc_tracker(base_dir, version)
-      prettyprint("Step 5: Complete", Levels.INFO)
-
-      # Step 5: Upload javadocs to FTP
-      prettyprint("Step 6: Uploading Javadocs", Levels.INFO)
-      do_task(upload_javadocs, [base_dir, version], async_processes)
-      prettyprint("Step 6: Complete", Levels.INFO)
-
-      prettyprint("Step 7: Uploading Artifacts", Levels.INFO)
-      do_task(upload_artifacts, [base_dir, version], async_processes)
-      do_task(upload_artifacts, [base_dir + "/as-modules", version], async_processes)
-      prettyprint("Step 7: Complete", Levels.INFO)
-
-      prettyprint("Step 8: Uploading to configuration XML schema", Levels.INFO)
-      do_task(upload_schema, [base_dir, version], async_processes)
-      prettyprint("Step 8: Complete", Levels.INFO)
-
-      ## Wait for processes to finish
-      for p in async_processes:
-        p.start()
-
-      for p in async_processes:
-        p.join()
-
   ## Tag the release
   git.tag_for_release()
 
-  step_no=9
-  if mvn_only:
-    step_no=5
-  
   # Switch back to the branch being released
   git.switch_to_branch()
   
   # Update to next version
   if version_next is not None:
-    prettyprint("Step %s: Updating version number for next release" % step_no, Levels.INFO)
+    prettyprint("Step %s: Updating version number for next release" % 5, Levels.INFO)
     update_versions(base_dir, version_next)
-    prettyprint("Step %s: Complete" % step_no, Levels.INFO)
+    prettyprint("Step %s: Complete" % 5, Levels.INFO)
 
   if not settings['dry_run']:
     git.push_tag_to_origin()
