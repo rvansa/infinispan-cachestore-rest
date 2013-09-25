@@ -260,13 +260,14 @@ public class RestStore implements AdvancedLoadWriteStore {
          int tasks = 0;
          final TaskContext taskContext = new TaskContextImpl();
          BufferedReader reader = new BufferedReader(new InputStreamReader(entity.getContent()));
-         Set<String> entries = new HashSet<String>(batchSize);
-         for (String key = reader.readLine(); key != null; key = reader.readLine()) {
+         Set<Object> entries = new HashSet<Object>(batchSize);
+         for (String stringKey = reader.readLine(); stringKey != null; stringKey = reader.readLine()) {
+            Object key = key2StringMapper.getKeyMapping(stringKey);
             if (keyFilter == null || keyFilter.shouldLoadKey(key))
                entries.add(key);
             if (entries.size() == batchSize) {
-               final Set<String> batch = entries;
-               entries = new HashSet<String>(batchSize);
+               final Set<Object> batch = entries;
+               entries = new HashSet<Object>(batchSize);
                submitProcessTask(cacheLoaderTask, ecs, taskContext, batch, loadValue, loadMetadata);
                tasks++;
             }
@@ -284,7 +285,7 @@ public class RestStore implements AdvancedLoadWriteStore {
    }
 
    private void submitProcessTask(final CacheLoaderTask cacheLoaderTask, ExecutorCompletionService ecs,
-                                  final TaskContext taskContext, final Set<String> batch, final boolean loadEntry,
+                                  final TaskContext taskContext, final Set<Object> batch, final boolean loadEntry,
                                   final boolean loadMetadata) {
       ecs.submit(new Callable<Void>() {
          @Override

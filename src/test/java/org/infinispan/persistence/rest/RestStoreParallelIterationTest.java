@@ -16,8 +16,7 @@ import org.testng.annotations.Test;
  * @author Mircea Markus
  * @since 6.0
  */
-@Test (groups = "functional", testName = "persistence.rest.RestStoreParallelIterationTest", enabled = false,
-       description = "See https://issues.jboss.org/browse/ISPN-3508")
+@Test (groups = "functional", testName = "persistence.rest.RestStoreParallelIterationTest")
 public class RestStoreParallelIterationTest  extends ParallelIterationTest {
 
    private EmbeddedCacheManager localCacheManager;
@@ -43,23 +42,5 @@ public class RestStoreParallelIterationTest  extends ParallelIterationTest {
    @Override
    protected int numThreads() {
       return KnownComponentNames.getDefaultThreads(KnownComponentNames.PERSISTENCE_EXECUTOR) + 1 /** caller's thread */;
-   }
-
-   @Override
-   @Test(enabled = false, description = "Re-enable with ISPN-3508")
-   public void testParallelIteration() {
-      super.testParallelIteration();
-   }
-
-   @Override
-   @Test(enabled = false, description = "Re-enable with ISPN-3508")
-   public void testSequentialIteration() {
-      super.testSequentialIteration();
-   }
-
-   @Override
-   @Test(enabled = false, description = "Re-enable with ISPN-3508")
-   public void testCancelingTaskMultipleProcessors() {
-      super.testCancelingTaskMultipleProcessors();
    }
 }
