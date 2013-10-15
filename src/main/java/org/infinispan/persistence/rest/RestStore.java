@@ -1,7 +1,6 @@
 package org.infinispan.persistence.rest;
 
 import net.jcip.annotations.ThreadSafe;
-
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.net.URLCodec;
 import org.apache.http.Header;
@@ -24,18 +23,18 @@ import org.apache.http.params.HttpParams;
 import org.apache.http.util.EntityUtils;
 import org.infinispan.commons.util.Util;
 import org.infinispan.container.InternalEntryFactory;
-import org.infinispan.persistence.rest.configuration.ConnectionPoolConfiguration;
-import org.infinispan.persistence.rest.configuration.RestStoreConfiguration;
-import org.infinispan.persistence.rest.logging.Log;
-import org.infinispan.persistence.rest.metadata.MetadataHelper;
+import org.infinispan.executors.ExecutorAllCompletionService;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.metadata.InternalMetadata;
 import org.infinispan.metadata.InternalMetadataImpl;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.persistence.CacheLoaderException;
-import org.infinispan.persistence.PersistenceUtil;
 import org.infinispan.persistence.TaskContextImpl;
 import org.infinispan.persistence.keymappers.MarshallingTwoWayKey2StringMapper;
+import org.infinispan.persistence.rest.configuration.ConnectionPoolConfiguration;
+import org.infinispan.persistence.rest.configuration.RestStoreConfiguration;
+import org.infinispan.persistence.rest.logging.Log;
+import org.infinispan.persistence.rest.metadata.MetadataHelper;
 import org.infinispan.persistence.spi.AdvancedLoadWriteStore;
 import org.infinispan.persistence.spi.InitializationContext;
 import org.infinispan.util.logging.LogFactory;
@@ -49,8 +48,8 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionService;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -256,8 +255,7 @@ public class RestStore implements AdvancedLoadWriteStore {
          HttpResponse response = httpClient.execute(httpHost, get);
          HttpEntity entity = response.getEntity();
          int batchSize = 1000;
-         ExecutorCompletionService ecs = new ExecutorCompletionService(executor);
-         int tasks = 0;
+         ExecutorAllCompletionService eacs = new ExecutorAllCompletionService(executor);
          final TaskContext taskContext = new TaskContextImpl();
          BufferedReader reader = new BufferedReader(new InputStreamReader(entity.getContent()));
          Set<Object> entries = new HashSet<Object>(batchSize);
@@ -268,15 +266,16 @@ public class RestStore implements AdvancedLoadWriteStore {
             if (entries.size() == batchSize) {
                final Set<Object> batch = entries;
                entries = new HashSet<Object>(batchSize);
-               submitProcessTask(cacheLoaderTask, ecs, taskContext, batch, loadValue, loadMetadata);
-               tasks++;
+               submitProcessTask(cacheLoaderTask, eacs, taskContext, batch, loadValue, loadMetadata);
             }
          }
          if (!entries.isEmpty()) {
-            submitProcessTask(cacheLoaderTask, ecs, taskContext, entries, loadValue, loadMetadata);
-            tasks++;
+            submitProcessTask(cacheLoaderTask, eacs, taskContext, entries, loadValue, loadMetadata);
          }
-         PersistenceUtil.waitForAllTasksToComplete(ecs, tasks);
+         eacs.waitUntilAllCompleted();
+         if (eacs.isExceptionThrown()) {
+            throw new CacheLoaderException("Execution exception!", eacs.getFirstException());
+         }
       } catch (Exception e) {
          throw log.errorLoadingRemoteEntries(e);
       } finally {
@@ -284,20 +283,25 @@ public class RestStore implements AdvancedLoadWriteStore {
       }
    }
 
-   private void submitProcessTask(final CacheLoaderTask cacheLoaderTask, ExecutorCompletionService ecs,
+   private void submitProcessTask(final CacheLoaderTask cacheLoaderTask, CompletionService ecs,
                                   final TaskContext taskContext, final Set<Object> batch, final boolean loadEntry,
                                   final boolean loadMetadata) {
       ecs.submit(new Callable<Void>() {
          @Override
          public Void call() throws Exception {
-            for (Object key : batch) {
-               if (taskContext.isStopped())
-                  break;
-               if (!loadEntry && !loadMetadata) {
-                  cacheLoaderTask.processEntry(ctx.getMarshalledEntryFactory().newMarshalledEntry(key, (Object) null, null), taskContext);
-               } else {
-                  cacheLoaderTask.processEntry(load(key), taskContext);
+            try {
+               for (Object key : batch) {
+                  if (taskContext.isStopped())
+                     break;
+                  if (!loadEntry && !loadMetadata) {
+                     cacheLoaderTask.processEntry(ctx.getMarshalledEntryFactory().newMarshalledEntry(key, (Object) null, null), taskContext);
+                  } else {
+                     cacheLoaderTask.processEntry(load(key), taskContext);
+                  }
                }
+            } catch (Exception e) {
+               log.errorExecutingParallelStoreTask(e);
+               throw e;
             }
             return null;
          }
